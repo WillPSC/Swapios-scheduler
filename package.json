@@ -1,0 +1,36 @@
+{
+  "name": "swapios-scheduler",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "set NODE_ENV=dev && node --loader ts-node/esm index.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/WillPSC/Swapios-scheduler.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/WillPSC/Swapios-scheduler/issues"
+  },
+  "homepage": "https://github.com/WillPSC/Swapios-scheduler#readme",
+  "devDependencies": {
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.523.0",
+    "@aws-sdk/credential-provider-node": "^3.523.0",
+    "@types/aws-sdk": "^2.7.0",
+    "@types/dotenv": "^8.2.0",
+    "@types/log4js": "^2.3.5",
+    "@types/node": "^20.11.20",
+    "aws-sdk": "^2.1567.0",
+    "aws-sdk-js-codemod": "^1.0.5",
+    "dotenv": "^16.4.5",
+    "log4js": "^6.9.1"
+  }
+}
