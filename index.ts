@@ -1,13 +1,18 @@
 import * as dotenv from 'dotenv';
 import {Bucket, ListObjectsV2Command, GetObjectCommand, S3} from '@aws-sdk/client-s3';
 import {Readable} from "stream";
+import Crunker from "crunker";
+
 
 const fs = require('fs');
+let crunker = new Crunker();
+
 
 dotenv.config();
 
 
 const s3Client = new S3({region: 'eu-central-1'});
+const STRAPI_DAILY_PARTICIPANT_URL = "http://localhost:1337/api/daily-particpants?populate[users_permissions_user][fields]=username&fields=particpant_id&filters[particpant_id][$eq]=";
 
 const getBuckets = async (): Promise<Bucket[]> => {
     try {
@@ -28,16 +33,16 @@ const getListOfBucketObjects = async (nameBucket: string, path?: string) => {
         let isTruncated = true;
 
         console.log("Your bucket contains the following objects:\n");
-        let contents = "";
+        let contents = [];
+
         while (isTruncated) {
+
             const {Contents, IsTruncated, NextContinuationToken} = await s3Client.send(command);
-
-            console.log("Contents: ", Contents);
-
-            const contentsList = Contents.map((c) => ` • ${c.Key}`).join("\n");
-            contents += contentsList + "\n";
+            console.log("CONTENTS ", IsTruncated)
+            Contents.map((c) => contents.push(c.Key));
             isTruncated = IsTruncated;
             command.input.ContinuationToken = NextContinuationToken;
+
         }
         return contents
     } catch (err) {
@@ -58,7 +63,7 @@ const downloadRecordingObject = async (nameBucket: string, pathFile: string) => 
 
         let res = await Body.transformToByteArray();
 
-        fs.writeFile("./recording/1708466239040-0736a252-241e-4aad-8da9-a984ecfb6d81-cam-audio-1708466239683.weba", res, (writeErr) => {
+        fs.writeFile("./recording/"+pathFile.split("/")[2]+".weba", res, (writeErr) => {
             if (writeErr) {
                 console.error("Error writing file: ", writeErr);
                 throw new Error("Error writing file ")
@@ -74,21 +79,70 @@ const downloadRecordingObject = async (nameBucket: string, pathFile: string) => 
 
 }
 
+const uploadRecordingToS3 =  () => {
+
+}
+
+const extractParticipantIDRecording = (recordingName: string) => {
+
+    return recordingName.substring(recordingName.indexOf("-") + 1, recordingName.lastIndexOf("-") - 10)
+
+}
+
+const getProfessionalName = async (dailyParticipantID: string) => {
+    try {
+
+        const url = STRAPI_DAILY_PARTICIPANT_URL + dailyParticipantID;
+        const participantsId = (await fetch(url, {
+                    headers: {Authorization: `Bearer ${process.env.STRAPI_KEY}`}
+                }
+            )
+        ).json();
+        return participantsId;
+    } catch (err) {
+        console.error("failed to fetch participant ids", err)
+    }
+}
+
+
+/*const mergeAudio = (listAudio) => {
+
+    crunker
+        .fetchAudio(audio1)
+        .then((buffers) => crunker.mergeAudio(buffers))
+        .then((merged) => crunker.export(merged, 'audio/mp3'))
+        .then((output) => crunker.download(output.blob))
+        .catch((error) => {
+            throw new Error(error);
+        });
+}*/
 export async function main() {
-    let listRecording: string[] = [];
+    let listRecording = [];
 
     try {
 
         let buckets = await getBuckets();
-        console.log("BUCKETS ", buckets);
 
-        let contents = await getListOfBucketObjects(buckets[2].Name, "swapios/recordingRoom/1709476903173");
-        console.log(contents);
+        let contents = await getListOfBucketObjects(buckets[2].Name, "swapios/1002/");
 
+        for (const content of contents) {
 
-        //await downloadRecordingObject(buckets[2].Name, "swapios/totoRoom/1708466239040-0736a252-241e-4aad-8da9-a984ecfb6d81-cam-audio-1708466239683");
+            let professionalObj = await getProfessionalName(extractParticipantIDRecording(content));
+            let professionalName : string = professionalObj.data[0].attributes.users_permissions_user.data.attributes.username
 
+            if (!listRecording.some(obj => Object.keys(obj)[0] === professionalName)){
 
+                listRecording.push({ [professionalName]: [content] })
+                await downloadRecordingObject(buckets[2].Name, content)
+
+            }else{
+
+                listRecording.find(obj => Object.keys(obj)[0] === professionalName)[professionalName].push(content);
+                await downloadRecordingObject(buckets[2].Name, content)
+
+            }
+        }
+        console.log(listRecording)
 
     } catch (error) {
         console.error('Error:', error);
